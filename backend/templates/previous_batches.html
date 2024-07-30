@@ -1,0 +1,101 @@
+{% extends 'layout/base.html' %}
+{% load static %}
+
+{% block content %}
+<table class="table table-bordered table-striped">
+    <thead>
+        <tr>
+            <th>Batch ID</th>
+            <th>Prompt</th>
+            <th>Image</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for batch in batches %}
+            <tr>
+                <td>{{ batch.batch_id }}</td>
+                <td>
+                    {% for prompt in batch.prompts%}
+                        {{ prompt }}
+                    {% endfor %}
+                </td>
+                <td>
+                    <button class="btn btn-info" data-batch-id="{{ batch.batch_id }}" onclick="viewImages(this)">Link</button>
+                </td>
+            </tr>
+   
+        {% endfor %}
+    </tbody>
+</table>
+
+<!-- Modal for displaying images in a carousel -->
+<div class="modal" id="imagesModal" tabindex="-1" aria-labelledby="imagesModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="imagesModalLabel">Batch Images</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="carouselExampleIndicators" class="carousel slide">
+                    <div class="carousel-inner" id="carouselInner">
+                        <!-- Carousel items will be inserted here via JavaScript -->
+                    </div>
+                    <a class="carousel-control-prev" href="#carouselExampleIndicators" role="button" data-bs-slide="prev">
+                        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                        <span class="visually-hidden">Previous</span>
+                    </a>
+                    <a class="carousel-control-next" href="#carouselExampleIndicators" role="button" data-bs-slide="next">
+                        <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                        <span class="visually-hidden">Next</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function viewImages(button) {
+        const batchId = $(button).data('batch-id');
+        
+        $.ajax({
+            url: `/batch-images/${batchId}/`,
+            method: 'GET',
+            success: function(data) {
+                if (data.error) {
+                    alert(data.error);
+                    return;
+                }
+                
+                const carouselInner = $('#carouselInner');
+                carouselInner.empty();
+    
+                if (data.images.length === 0) {
+                    carouselInner.append('<div class="carousel-item active"><p>No images available.</p></div>');
+                } else {
+                    data.images.forEach((image, index) => {
+                        const activeClass = index === 0 ? 'active' : '';
+                        carouselInner.append(`
+                            <div class="carousel-item ${activeClass}">
+                                <img src="${image.image_url}" class="d-block w-100" alt="${image.prompt}">
+                                <div class="carousel-caption d-none d-md-block">
+                                    <h5>${image.prompt}</h5>
+                                </div>
+                            </div>
+                        `);
+                    });
+                }
+    
+                const imagesModal = new bootstrap.Modal(document.getElementById('imagesModal'));
+                imagesModal.show();
+            },
+            error: function(xhr, status, error) {
+                alert("An error occurred while fetching images.");
+            }
+        });
+    }
+
+</script>
+
+{% endblock %}

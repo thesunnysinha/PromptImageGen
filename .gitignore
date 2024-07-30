@@ -1,0 +1,7 @@
+# Ignore the virtual environment directory
+venv/
+
+# Ignore the .env directory and its contents
+.env
+
+db.sqlite3

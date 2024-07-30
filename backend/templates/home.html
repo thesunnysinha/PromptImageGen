@@ -1,0 +1,186 @@
+{% extends 'layout/base.html' %}
+{% load static %}
+
+{% block extra_head %}
+{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body">
+                    <h1 class="card-title text-center">Image Generation</h1>
+                    <h2 class="card-subtitle mb-4 text-center">Generate New Images</h2>
+                    <form id="promptsForm">
+                        <div id="promptsContainer" class="mb-3">
+                            <div class="input-group mb-3">
+                                <input type="text" class="form-control" name="prompts" placeholder="Enter prompt">
+                                <button class="btn btn-danger" type="button" onclick="removePrompt(this)">X</button>
+                            </div>
+                        </div>
+                        <div class="text-center mb-3">
+                            <button type="button" class="btn btn-primary" onclick="addPrompt()">+ Add Prompt</button>
+                        </div>
+                        <div class="text-center mb-3">
+                            <button type="submit" class="btn btn-success">Generate Images</button>
+                        </div>
+                    </form>
+                    <div class="text-center">
+                        <button type="button" class="btn btn-info mt-3" id="viewPreviousBatchesBtn" data-bs-toggle="modal" data-bs-target="#previousBatchesModal">
+                            View Previous Batches
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal for displaying images in a carousel -->
+<div class="modal" id="imagesModal" tabindex="-1" aria-labelledby="imagesModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="imagesModalLabel">Batch Images</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="carouselExampleIndicators" class="carousel slide">
+                    <div class="carousel-inner" id="carouselInner">
+                        <!-- Carousel items will be inserted here via JavaScript -->
+                    </div>
+                    <a class="carousel-control-prev" href="#carouselExampleIndicators" role="button" data-bs-slide="prev">
+                        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                        <span class="visually-hidden">Previous</span>
+                    </a>
+                    <a class="carousel-control-next" href="#carouselExampleIndicators" role="button" data-bs-slide="next">
+                        <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                        <span class="visually-hidden">Next</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% include 'partials/loading_modals.html' %}
+{% include 'partials/previous_batches_modal.html' %}
+
+<script src="https://code.jquery.com/jquery-3.7.1.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.min.js"></script>
+
+<script>
+    // Function to add a new prompt input field
+    function addPrompt() {
+        const newPrompt = `
+            <div class="input-group mb-3">
+                <input type="text" class="form-control" name="prompts" placeholder="Enter prompt">
+                <button class="btn btn-danger" type="button" onclick="removePrompt(this)">X</button>
+            </div>
+        `;
+        $('#promptsContainer').append(newPrompt);
+    }
+
+    // Function to remove a prompt input field
+    function removePrompt(button) {
+        if ($('#promptsContainer .input-group').length > 1) {
+            $(button).closest('.input-group').remove();
+        }
+    }
+
+    $(document).ready(function() {
+        $('#promptsForm').submit(function(e) {
+            e.preventDefault();
+            $('#loadingModal').modal('show');
+            $('#errorAlert').hide();
+
+            const prompts = $('input[name="prompts"]').map(function() {
+                return this.value;
+            }).get();
+
+            $.ajax({
+                url: '/generate-images/',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ prompts }),
+                success: function(data) {
+                    $('#loadingModal').modal('hide');
+                    const batchId = data.batch_id;
+                    if (batchId) {
+                        // Fetch and show images for the new batch
+                        viewImages(batchId);
+                    }
+                },
+                error: function(xhr, status, error) {
+                    $('#loadingModal').modal('hide');
+                    $('#errorMessage').text(xhr.responseText || "An error occurred while generating images.");
+                    $('#errorAlert').show(); 
+                }
+            });
+        });
+
+        $('#viewPreviousBatchesBtn').on('click', function () {
+            $('#loadingModal').modal('show'); 
+            $('#errorAlert').hide();
+
+            $.ajax({
+                url: '{% url "previous_batches" %}', 
+                method: 'GET',
+                success: function(response) {
+                    $('#loadingModal').modal('hide');
+                    $('#previousBatchesContent').html(response); 
+                    $('#previousBatchesModal').modal('show'); 
+                },
+                error: function(xhr, status, error) {
+                    $('#loadingModal').modal('hide');
+                    $('#errorMessage').text(xhr.responseText || "An error occurred while loading previous batches.");
+                    $('#errorAlert').show(); 
+                }
+            });
+        });
+
+        function viewImages(batchId) {
+            
+            $.ajax({
+                url: `/batch-images/${batchId}/`,
+                method: 'GET',
+                success: function(data) {
+                    if (data.error) {
+                        alert(data.error);
+                        return;
+                    }
+                    
+                    const carouselInner = $('#carouselInner');
+                    carouselInner.empty();
+        
+                    if (data.images.length === 0) {
+                        carouselInner.append('<div class="carousel-item active"><p>No images available.</p></div>');
+                    } else {
+                        data.images.forEach((image, index) => {
+                            const activeClass = index === 0 ? 'active' : '';
+                            carouselInner.append(`
+                                <div class="carousel-item ${activeClass}">
+                                    <img src="${image.image_url}" class="d-block w-100" alt="${image.prompt}">
+                                    <div class="carousel-caption d-none d-md-block">
+                                        <h5>${image.prompt}</h5>
+                                    </div>
+                                </div>
+                            `);
+                        });
+                    }
+        
+                    const imagesModal = new bootstrap.Modal(document.getElementById('imagesModal'));
+                    imagesModal.show();
+                },
+                error: function(xhr, status, error) {
+                    alert("An error occurred while fetching images.");
+                }
+            });
+        }
+    
+    
+    });
+</script>
+{% endblock %}
