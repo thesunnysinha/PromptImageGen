@@ -1,0 +1,75 @@
+
+services:
+  db:
+    image: postgres:16
+    container_name: PromptImageGen_db
+    restart: always
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    env_file:
+      - ./env/db.env
+    ports:
+      - 5432:5432
+    networks:
+      - PromptImageGen-network
+
+  redis:
+    image: redis:latest
+    container_name: PromptImageGen_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    networks:
+      - PromptImageGen-network
+
+  backend:
+    build: ./services/backend
+    container_name: PromptImageGen_backend
+    restart: always
+    command: python manage.py runapplication
+    env_file:
+      - ./env/backend.env
+    volumes:
+      - PromptImageGen_backend:/app/
+    ports:
+      - 8000:8000
+    depends_on:
+      - db
+      - redis
+    networks:
+      - PromptImageGen-network
+
+  celeryworker:
+    build: ./services/backend
+    command: python manage.py runceleryworker
+    container_name: PromptImageGen_celery_worker
+    volumes:
+      - PromptImageGen_backend:/app
+    env_file:
+      - ./env/backend.env
+    depends_on:
+      - backend
+      - db
+      - redis
+    networks:
+      - PromptImageGen-network
+
+
+volumes:
+  postgres_data:
+    driver: local
+    name: PromptImageGen_backend_postgres_data
+
+  PromptImageGen_backend:
+    driver: local
+    name: PromptImageGen_backend_backend
+    driver_opts:
+      type: none
+      device: ./services/backend
+      o: bind
+
+networks:
+  PromptImageGen-network:
+    driver: bridge
+    
+

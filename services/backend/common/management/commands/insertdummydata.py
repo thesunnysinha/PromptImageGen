@@ -20,6 +20,9 @@ class Command(BaseCommand):
         username = 'admin'
 
         try:
+            if User.objects.filter(email=email).exists():
+                self.stdout.write(self.style.WARNING('Superuser already exists: {}'.format(email)))
+                return
             user = User.objects.create_superuser(
                 email=email,
                 password=password,

@@ -24,6 +24,7 @@ INSTALLED_APPS = [
     
     ########Local ##########
     'image_generation',
+    'common',
     
     ###### Third-Party ######
     'celery',
