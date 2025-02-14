@@ -20,7 +20,7 @@
     ![Generated Image](./samples/generated_image.png)
 
 
-2. **Previous Batches***
+2. **Previous Batches**
     ![Previous Batches](./samples/previous_batches.png)
 
 
